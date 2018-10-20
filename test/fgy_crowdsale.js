@@ -11,7 +11,7 @@ contract('FGYCrowdsale', (accounts) => {
     var rateNew = Number(206*1.3);
     var buyWeiNew = 1 * 10**18;
 
-    var fundForSale = 294e23;
+    var fundForSale = 35e24;
 
     it('should deployed contract', async ()  => {
         assert.equal(undefined, contract);
@@ -101,16 +101,13 @@ contract('FGYCrowdsale', (accounts) => {
     it('verification burning of tokens', async ()  => {
         var balanceOwnerBefore = await contract.balanceOf(owner);
         var totalSupplyBefore = await contract.totalSupply.call();
-        var fundForSaleBefore = await contract.fundForSale.call();
 
         await contract.ownerBurnToken(1*10**18);
 
         var balanceOwnerAfter = await contract.balanceOf(owner);
         var totalSupplyAfter = await contract.totalSupply.call();
-        var fundForSaleAfter = await contract.fundForSale.call();
         assert.equal(true, balanceOwnerBefore > balanceOwnerAfter);
         assert.equal(true, totalSupplyBefore > totalSupplyAfter);
-        assert.equal(true, fundForSaleBefore > fundForSaleAfter);
     });
 });
 

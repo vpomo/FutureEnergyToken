@@ -265,6 +265,16 @@ contract MintableToken is StandardToken, Ownable {
     }
 
     /**
+     * @dev Function to stop minting new tokens.
+     * @return True if the operation was successful.
+     */
+    function finishMinting() onlyOwner canMint internal returns (bool) {
+        mintingFinished = true;
+        emit MintFinished();
+        return true;
+    }
+
+    /**
      * Peterson's Law Protection
      * Claim tokens
      */
@@ -320,13 +330,6 @@ contract FGYCrowdsale is Ownable, Crowdsale, MintableToken {
 
 
     uint256 public constant INITIAL_SUPPLY = 35 * 10**6 * (10 ** uint256(decimals));
-    uint256 public    fundForSale = 294 * 10**5 * (10 ** uint256(decimals));
-
-    address public addressFundTeam   = 0x0B55283caD0cc5372E4D33aD6D3260D8050EccD4;
-    address public addressFundBounty   = 0xfe17aa1cf299038780b8B16F0B89DB8cEcF28a89;
-
-    uint256 public fundTeam   = 525 * 10**4 * (10 ** uint256(decimals));
-    uint256 public fundBounty   =  1 * 10**6 * (10 ** uint256(decimals));
 
     uint256 startTimePreIco = 1539993600; // Sat, 20 Oct 2018 00:00:00 GMT
     uint256 endTimePreIco =   1546300799; // Mon, 31 Dec 2018 23:59:59 GMT
@@ -339,9 +342,11 @@ contract FGYCrowdsale is Ownable, Crowdsale, MintableToken {
     event TokenPurchase(address indexed beneficiary, uint256 value, uint256 amount);
     event TokenLimitReached(address indexed sender, uint256 tokenRaised, uint256 purchasedToken);
     event CurrentPeriod(uint period);
+    event ChangeTime(address indexed owner, uint256 newValue, uint256 oldValue);
     event ChangeAddressWallet(address indexed owner, address indexed newAddress, address indexed oldAddress);
     event ChangeRate(address indexed owner, uint256 newValue, uint256 oldValue);
     event Burn(address indexed burner, uint256 value);
+    event Finalized();
 
     constructor(address _owner) public
     Crowdsale(_owner)
@@ -417,11 +422,7 @@ contract FGYCrowdsale is Ownable, Crowdsale, MintableToken {
     function mintForFund(address _walletOwner) internal returns (bool result) {
         result = false;
         require(_walletOwner != address(0));
-        balances[_walletOwner] = balances[_walletOwner].add(fundForSale);
-
-        balances[addressFundTeam] = balances[addressFundTeam].add(fundTeam);
-        balances[addressFundBounty] = balances[addressFundBounty].add(fundBounty);
-
+        balances[_walletOwner] = balances[_walletOwner].add(INITIAL_SUPPLY);
         result = true;
     }
 
@@ -429,32 +430,13 @@ contract FGYCrowdsale is Ownable, Crowdsale, MintableToken {
         return deposited[_investor];
     }
 
-    function setWallet(address _newWallet) external onlyOwner {
-        require(_newWallet != address(0));
-        address _oldWallet = wallet;
-        wallet = _newWallet;
-        emit ChangeAddressWallet(msg.sender, _newWallet, _oldWallet);
-    }
-
     function validPurchaseTokens(uint256 _weiAmount) public returns (uint256) {
         uint256 addTokens = getTotalAmountOfTokens(_weiAmount);
-        if (tokenAllocated.add(addTokens) > fundForSale) {
+        if (tokenAllocated.add(addTokens) > balances[owner]) {
             emit TokenLimitReached(msg.sender, tokenAllocated, addTokens);
             return 0;
         }
         return addTokens;
-    }
-
-    function getRefferalProfit(address _refferer) external {
-        uint256 balanceRefferal = balances[msg.sender];
-        require(_refferer != address(0));
-        require(balanceRefferal > 0);
-        require(balances[_refferer] > 0);
-
-        if (isRefferer[msg.sender] == false) {
-            isRefferer[msg.sender] = true;
-            balances[msg.sender] = balanceRefferal.mul(105).div(100);
-        }
     }
 
     /**
@@ -465,12 +447,89 @@ contract FGYCrowdsale is Ownable, Crowdsale, MintableToken {
         require(_value > 0);
         require(_value <= balances[owner]);
         require(_value <= totalSupply);
-        require(_value <= fundForSale);
 
         balances[owner] = balances[owner].sub(_value);
         totalSupply = totalSupply.sub(_value);
-        fundForSale = fundForSale.sub(_value);
         emit Burn(msg.sender, _value);
     }
+
+    /**
+     * @dev owner change time for startTimePreIco
+     * @param _value new time value
+     */
+    function setStartTimePreIco(uint256 _value) external onlyOwner {
+        require(_value > 0);
+        uint256 _oldValue = startTimePreIco;
+        startTimePreIco = _value;
+        emit ChangeTime(msg.sender, _value, _oldValue);
+    }
+
+
+    /**
+     * @dev owner change time for endTimePreIco
+     * @param _value new time value
+     */
+    function setEndTimePreIco(uint256 _value) external onlyOwner {
+        require(_value > 0);
+        uint256 _oldValue = endTimePreIco;
+        endTimePreIco = _value;
+        emit ChangeTime(msg.sender, _value, _oldValue);
+    }
+
+    /**
+     * @dev owner change time for startTimeIco
+     * @param _value new time value
+     */
+    function setStartTimeIco(uint256 _value) external onlyOwner {
+        require(_value > 0);
+        uint256 _oldValue = startTimeIco;
+        startTimeIco = _value;
+        emit ChangeTime(msg.sender, _value, _oldValue);
+    }
+
+    /**
+     * @dev owner change time for endTimeIco
+     * @param _value new time value
+     */
+    function setEndTimeIco(uint256 _value) external onlyOwner {
+        require(_value > 0);
+        uint256 _oldValue = endTimeIco;
+        endTimeIco = _value;
+        emit ChangeTime(msg.sender, _value, _oldValue);
+    }
+
+    /**
+     * @dev owner change address of wallet for collecting ETH
+     * @param _newWallet new address of wallet
+     */
+    function setWallet(address _newWallet) external onlyOwner {
+        require(_newWallet != address(0));
+        address _oldWallet = wallet;
+        wallet = _newWallet;
+        emit ChangeAddressWallet(msg.sender, _newWallet, _oldWallet);
+    }
+
+    /**
+     * @dev owner change price of tokens
+     * @param _newRate new price
+     */
+    function setRate(uint256 _newRate) external onlyOwner {
+        require(_newRate > 0);
+        uint256 _oldRate = rate;
+        rate = _newRate;
+        emit ChangeRate(msg.sender, _newRate, _oldRate);
+    }
+
+    /**
+     * @dev owner completes contract
+     */
+    function finalize() public onlyOwner returns (bool result) {
+        result = false;
+        transfersEnabled = false;
+        finishMinting();
+        emit Finalized();
+        result = true;
+    }
+
 }
 
